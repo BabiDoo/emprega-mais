@@ -68,6 +68,7 @@ const normalizeSessionPayload = (payload: any): WhatsAppSession => {
 
   return {
     id: session.id || payload.sessionId,
+    sessionId: session.id || payload.sessionId,
     phone: session.phone || '',
     step: payload.currentStep || session.current_step || payload.step || '',
     messages,
