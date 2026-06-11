@@ -6,7 +6,6 @@ import {
   Users,
   LogOut,
   Menu,
-  X,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { storage } from '@/utils/storage';

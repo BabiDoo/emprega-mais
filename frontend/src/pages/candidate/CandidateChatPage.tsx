@@ -4,13 +4,10 @@ import {
   Send,
   Mic,
   MicOff,
-  Phone,
-  Video,
   Search,
   MoreVertical,
   ArrowLeft,
   CheckCheck,
-  Paperclip,
   Smile,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
@@ -107,6 +104,14 @@ export const CandidateChatPage: React.FC = () => {
     }
   };
 
+  const finalizeProfileIfReady = async (sessionId: string, step: string) => {
+    if (step !== 'generating_resume') return;
+
+    await generateProfile(sessionId);
+    const refreshed = await getSession(sessionId);
+    applySession(refreshed.data);
+  };
+
   const handleSendText = async () => {
     if (!text.trim() || !session || loading) return;
     const content = text.trim();
@@ -127,10 +132,11 @@ export const CandidateChatPage: React.FC = () => {
     try {
       const { data } = await sendTextMessage(session.id, { step: currentStep, text: content });
       applySession(data);
+      await finalizeProfileIfReady(session.id, data.step);
 
       // Auto-generate profile when done
-      if (data.step === 'generating_resume') {
-        const profile = await generateProfile(session.id);
+      if (false && data.step === 'generating_resume') {
+        const profile = await generateProfile(data.id);
         if (profile.data) {
           const doneMsg: ChatMessage = {
             id: Date.now().toString() + '_done',
@@ -189,6 +195,7 @@ export const CandidateChatPage: React.FC = () => {
     try {
       const { data } = await sendAudioMessage(session.id, form);
       applySession(data);
+      await finalizeProfileIfReady(session.id, data.step);
     } finally {
       setLoading(false);
     }

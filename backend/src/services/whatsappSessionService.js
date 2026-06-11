@@ -1,7 +1,12 @@
 import { supabase } from '../config/supabase.js';
 import { AppError } from '../utils/AppError.js';
+import {
+  getWhatsappTemplateMetadata,
+  getWhatsappTemplateText,
+} from './messageTemplateService.js';
 
 export const whatsappSteps = [
+  'welcome',
   'ask_name',
   'ask_age',
   'ask_birth_date',
@@ -14,23 +19,8 @@ export const whatsappSteps = [
   'ask_skills',
 ];
 
-const botMessagesByStep = {
-  ask_name: 'Ola. Para comecar, me diga seu nome completo.',
-  ask_age: 'Qual e a sua idade?',
-  ask_birth_date: 'Qual e a sua data de nascimento?',
-  ask_is_pcd: 'Voce se autodeclara uma pessoa com deficiencia, PCD?',
-  ask_accessibility_needs: 'Voce precisa de alguma adaptacao ou recurso de acessibilidade no trabalho?',
-  ask_city_state: 'Em qual cidade e estado voce mora?',
-  ask_professional_history: 'Conte um pouco da sua experiencia profissional.',
-  ask_current_goal: 'Que tipo de trabalho voce busca agora?',
-  ask_education: 'Qual e sua formacao ou escolaridade?',
-  ask_skills: 'Quais habilidades voce gostaria de destacar?',
-  generating_resume: 'Tenho as informacoes principais. Agora posso gerar seu perfil e curriculo.',
-  completed: 'Seu perfil foi criado e seu curriculo esta pronto.',
-};
-
 export function getBotMessage(step) {
-  return botMessagesByStep[step] || null;
+  return getWhatsappTemplateText(step);
 }
 
 export function getNextStep(step) {
@@ -40,7 +30,7 @@ export function getNextStep(step) {
 }
 
 export async function createWhatsappSession(payload = {}) {
-  const currentStep = 'ask_name';
+  const currentStep = 'welcome';
 
   const { data: session, error } = await supabase
     .from('whatsapp_sessions')
@@ -119,6 +109,8 @@ export async function createCandidateChatMessage({
 export async function createBotChatMessage({ sessionId, step, text, metadata = {} }) {
   if (!text) return null;
 
+  const templateMetadata = getWhatsappTemplateMetadata(step);
+
   const { data, error } = await supabase
     .from('chat_messages')
     .insert({
@@ -127,7 +119,10 @@ export async function createBotChatMessage({ sessionId, step, text, metadata = {
       message_type: 'text',
       text_content: text,
       step,
-      metadata,
+      metadata: {
+        ...templateMetadata,
+        ...metadata,
+      },
     })
     .select()
     .single();

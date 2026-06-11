@@ -8,7 +8,6 @@ import {
   Calendar,
   MessageSquare,
   CheckCircle,
-  XCircle,
   Loader,
 } from 'lucide-react';
 import { CompanyLayout } from '@/components/layout/CompanyLayout';

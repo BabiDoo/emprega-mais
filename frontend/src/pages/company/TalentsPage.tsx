@@ -5,7 +5,6 @@ import { CompanyLayout } from '@/components/layout/CompanyLayout';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { getTalentProfiles } from '@/services/api';
-import { CANDIDATE_TYPE_LABELS } from '@/utils/cn';
 import type { TalentProfile } from '@/types';
 
 export const TalentsPage: React.FC = () => {
