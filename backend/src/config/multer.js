@@ -18,7 +18,9 @@ export const uploadAudio = multer({
     fileSize: 10 * 1024 * 1024,
   },
   fileFilter: (req, file, callback) => {
-    if (acceptedAudioMimeTypes.has(file.mimetype)) {
+    const mimeType = file.mimetype.split(';')[0].trim().toLowerCase();
+
+    if (acceptedAudioMimeTypes.has(mimeType)) {
       callback(null, true);
       return;
     }

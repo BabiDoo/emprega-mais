@@ -54,13 +54,17 @@ export const CandidateChatPage: React.FC = () => {
   const navigate = useNavigate();
   const bottomRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recordingStartedAtRef = useRef<number>(0);
+  const shouldSendRecordingRef = useRef(false);
 
   const [session, setSession] = useState<WhatsAppSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingStarting, setRecordingStarting] = useState(false);
   const [phone, setPhone] = useState('');
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
@@ -96,7 +100,7 @@ export const CandidateChatPage: React.FC = () => {
     setInitLoading(true);
     try {
       const { data } = await createSession({ phone: phone.trim() });
-      storage.setSessionId(data.sessionId);
+      storage.setSessionId(data.id);
       applySession(data);
       setShowPhoneModal(false);
     } finally {
@@ -119,8 +123,9 @@ export const CandidateChatPage: React.FC = () => {
     setLoading(true);
 
     // Optimistic
+    const tempId = Date.now().toString();
     const tempMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: tempId,
       role: 'user',
       type: 'text',
       content,
@@ -149,6 +154,10 @@ export const CandidateChatPage: React.FC = () => {
           scrollToBottom();
         }
       }
+    } catch {
+      setMessages((prev) => prev.filter((message) => message.id !== tempId));
+      setText(content);
+      alert('Nao foi possivel enviar a mensagem. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -161,41 +170,129 @@ export const CandidateChatPage: React.FC = () => {
     }
   };
 
-  // Audio recording
+  const stopMediaStream = useCallback(() => {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }, []);
+
+  const getPreferredAudioMimeType = () => {
+    if (typeof MediaRecorder.isTypeSupported !== 'function') return '';
+
+    const preferredTypes = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+    ];
+
+    return preferredTypes.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+  };
+
+  const extensionFromMimeType = (mimeType: string) => {
+    if (mimeType.includes('mp4')) return 'm4a';
+    if (mimeType.includes('ogg')) return 'ogg';
+    return 'webm';
+  };
+
   const startRecording = async () => {
+    if (!session || loading || recording || recordingStarting) return;
+
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      alert('Seu navegador nao suporta gravacao de audio.');
+      return;
+    }
+
+    setRecordingStarting(true);
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      const mimeType = getPreferredAudioMimeType();
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+      mediaStreamRef.current = stream;
       mediaRecorderRef.current = mr;
       chunksRef.current = [];
-      mr.ondataavailable = (e) => chunksRef.current.push(e.data);
+      recordingStartedAtRef.current = Date.now();
+      shouldSendRecordingRef.current = true;
+
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
       mr.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        stream.getTracks().forEach((t) => t.stop());
+        const durationMs = Date.now() - recordingStartedAtRef.current;
+        const type = mr.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type });
+        const shouldSend = shouldSendRecordingRef.current;
+
+        stopMediaStream();
+        mediaRecorderRef.current = null;
+        chunksRef.current = [];
+        recordingStartedAtRef.current = 0;
+
+        if (!shouldSend) return;
+
+        if (durationMs < 900 || blob.size < 1024) {
+          alert('Grave um audio um pouco mais longo antes de enviar.');
+          return;
+        }
+
         await sendAudio(blob);
       };
       mr.start();
       setRecording(true);
+      setRecordingStarting(false);
     } catch {
+      stopMediaStream();
+      mediaRecorderRef.current = null;
+      setRecordingStarting(false);
       alert('Não foi possível acessar o microfone.');
     }
   };
 
-  const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
+  const stopRecording = useCallback((send = true) => {
+    shouldSendRecordingRef.current = send;
+
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    } else {
+      stopMediaStream();
+      mediaRecorderRef.current = null;
+    }
+
     setRecording(false);
+  }, [stopMediaStream]);
+
+  const toggleRecording = () => {
+    if (recording) {
+      stopRecording(true);
+      return;
+    }
+
+    startRecording();
   };
+
+  useEffect(() => () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      stopRecording(false);
+      return;
+    }
+
+    stopMediaStream();
+  }, [stopMediaStream, stopRecording]);
 
   const sendAudio = async (blob: Blob) => {
     if (!session) return;
     setLoading(true);
     const form = new FormData();
-    form.append('audio', blob, 'audio.webm');
+    form.append('audio', blob, `audio.${extensionFromMimeType(blob.type)}`);
     form.append('step', currentStep);
     try {
       const { data } = await sendAudioMessage(session.id, form);
       applySession(data);
       await finalizeProfileIfReady(session.id, data.step);
+    } catch {
+      alert('Nao foi possivel enviar ou transcrever o audio. Tente gravar novamente.');
     } finally {
       setLoading(false);
     }
@@ -397,11 +494,11 @@ export const CandidateChatPage: React.FC = () => {
             </button>
           ) : (
             <button
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-              disabled={loading}
+              onClick={toggleRecording}
+              disabled={loading || recordingStarting}
+              type="button"
+              aria-label={recording ? 'Parar gravacao' : 'Gravar audio'}
+              title={recording ? 'Parar gravacao' : 'Gravar audio'}
               className={cn(
                 'w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50',
                 recording

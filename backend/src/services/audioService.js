@@ -11,6 +11,7 @@ import {
 import { getPublicUrl, storageBuckets, uploadBufferToStorage } from './storageService.js';
 
 function extensionFromMimeType(mimeType) {
+  const normalizedMimeType = normalizeMimeType(mimeType);
   const mapping = {
     'audio/webm': 'webm',
     'audio/mpeg': 'mp3',
@@ -22,7 +23,33 @@ function extensionFromMimeType(mimeType) {
     'audio/flac': 'flac',
   };
 
-  return mapping[mimeType] || 'webm';
+  return mapping[normalizedMimeType] || 'webm';
+}
+
+function normalizeMimeType(mimeType = '') {
+  return mimeType.split(';')[0].trim().toLowerCase();
+}
+
+function normalizeTranscription(text = '') {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function isUsableTranscription(text) {
+  const normalized = normalizeTranscription(text);
+
+  if (!normalized) return false;
+
+  const nonSpeechPatterns = [
+    /por favor.*forneca.*(audio|conteudo).*transcrit/,
+    /nao.*(recebi|ha|existe).*(audio|fala|conteudo)/,
+    /nenhum.*(audio|fala|conteudo).*(fornecido|enviado|detectado)/,
+  ];
+
+  return !nonSpeechPatterns.some((pattern) => pattern.test(normalized));
 }
 
 async function createAudioMessage(row) {
@@ -56,18 +83,12 @@ export async function processAudioMessage({ sessionId, step, file }) {
     throw new AppError('Audio file is required in field "audio"', 400);
   }
 
+  if (!file.buffer?.length || file.size < 1024) {
+    throw new AppError('Audio is too short or empty. Record again before sending.', 400);
+  }
+
   const session = await getWhatsappSession(sessionId);
   const currentStep = step || session.current_step;
-  const chatMessage = await createCandidateChatMessage({
-    sessionId,
-    step: currentStep,
-    messageType: 'audio',
-    textContent: file.originalname || 'candidate-audio',
-    metadata: {
-      mimeType: file.mimetype,
-      size: file.size,
-    },
-  });
 
   const extension = extensionFromMimeType(file.mimetype);
   const audioMessageId = crypto.randomUUID();
@@ -88,7 +109,6 @@ export async function processAudioMessage({ sessionId, step, file }) {
   let audioMessage = await createAudioMessage({
     id: audioMessageId,
     session_id: sessionId,
-    chat_message_id: chatMessage.id,
     step: currentStep,
     storage_bucket: storageBuckets.audio,
     storage_path: storagePath,
@@ -100,26 +120,44 @@ export async function processAudioMessage({ sessionId, step, file }) {
     transcription_provider: 'google-gemini',
   });
 
-  await updateChatMessage(chatMessage.id, {
-    audio_message_id: audioMessage.id,
-  });
-
   try {
     const transcription = await transcribeAudioWithGemini({
       buffer: file.buffer,
-      mimeType: file.mimetype,
+      mimeType: normalizeMimeType(file.mimetype),
     });
+    const transcriptionText = transcription.text?.trim() || '';
+
+    if (!isUsableTranscription(transcriptionText)) {
+      throw new AppError('Audio transcription did not contain usable speech. Record again before sending.', 400);
+    }
 
     audioMessage = await updateAudioMessage(audioMessage.id, {
       transcription_status: 'completed',
-      transcription_text: transcription.text,
+      transcription_text: transcriptionText,
       transcription_raw_response: transcription.raw,
       error_message: null,
     });
 
+    const chatMessage = await createCandidateChatMessage({
+      sessionId,
+      step: currentStep,
+      messageType: 'audio',
+      textContent: transcriptionText,
+      transcription: transcriptionText,
+      metadata: {
+        audioMessageId: audioMessage.id,
+        mimeType: file.mimetype,
+        size: file.size,
+        publicUrl,
+      },
+    });
+
+    audioMessage = await updateAudioMessage(audioMessage.id, {
+      chat_message_id: chatMessage.id,
+    });
+
     await updateChatMessage(chatMessage.id, {
-      transcription: transcription.text,
-      text_content: transcription.text,
+      audio_message_id: audioMessage.id,
     });
 
     const next = await advanceSessionAfterCandidateMessage({
@@ -131,9 +169,9 @@ export async function processAudioMessage({ sessionId, step, file }) {
       audioMessage,
       chatMessage: {
         ...chatMessage,
-        transcription: transcription.text,
+        transcription: transcriptionText,
       },
-      transcriptionText: transcription.text,
+      transcriptionText,
       storagePath,
       publicUrl,
       ...next,
@@ -143,6 +181,10 @@ export async function processAudioMessage({ sessionId, step, file }) {
       transcription_status: 'failed',
       error_message: error.message,
     });
+
+    if (error instanceof AppError) {
+      throw error;
+    }
 
     throw new AppError(`Gemini transcription failed: ${error.message}`, 502);
   }
