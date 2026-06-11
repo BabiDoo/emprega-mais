@@ -54,6 +54,7 @@ export interface ChatMessage {
 export interface WhatsAppSession {
   id: string;
   phone: string;
+  sessionId: string;
   step: string;
   messages: ChatMessage[];
   createdAt: string;
