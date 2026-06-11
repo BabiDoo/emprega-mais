@@ -1,5 +1,7 @@
 # Emprega Mais
 
+Link para acessar: https://emprega-mais-zeta.vercel.app/
+
 Emprega Mais is a job platform MVP focused on candidates 60+ and PCD (People with Disabilities).
 This repository contains both the frontend and backend applications.
 
