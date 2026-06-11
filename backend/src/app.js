@@ -22,6 +22,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', routes);
+app.use('/', routes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
