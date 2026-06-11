@@ -96,7 +96,7 @@ export const CandidateChatPage: React.FC = () => {
     setInitLoading(true);
     try {
       const { data } = await createSession({ phone: phone.trim() });
-      storage.setSessionId(data.id);
+      storage.setSessionId(data.sessionId);
       applySession(data);
       setShowPhoneModal(false);
     } finally {
@@ -296,7 +296,7 @@ export const CandidateChatPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-gray-500 truncate">
-                {messages.length > 0 ? messages[messages.length - 1].content.slice(0, 40) + '...' : 'Converse com a IA'}
+                {messages.length > 0 ? messages[messages.length - 1]?.content?.slice(0, 40) + '...' : 'Converse com a IA'}
               </p>
             </div>
           </div>
