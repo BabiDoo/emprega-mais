@@ -1,8 +1,9 @@
-# Emprega Mais
+# Emprega Mais - Hackathon Web Summit Rio 2026
 
 Link para acessar: https://emprega-mais-zeta.vercel.app/
 
-Emprega Mais is a job platform MVP focused on candidates 60+ and PCD (People with Disabilities).
+Emprega Mais is a job platform focused on candidates 60+ and PCD (People with Disabilities).
+We use AI to match candidates with companies, bringing accessibility and innovation.
 This repository contains both the frontend and backend applications.
 
 ## Project Structure
