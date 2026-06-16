@@ -123,15 +123,21 @@ export const CreateJobPage: React.FC = () => {
             {/* Hashtags */}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-primary-700">Hashtags</label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <input
                   value={hashInput}
                   onChange={(e) => setHashInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addHashtag(); } }}
                   placeholder="#atendimento"
-                  className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className="flex-1 min-w-0 rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
-                <Button type="button" variant="ghost" size="sm" onClick={addHashtag}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={addHashtag}
+                  className="w-full sm:w-auto"
+                >
                   <Hash size={15} />
                   Adicionar
                 </Button>
@@ -168,16 +174,14 @@ export const CreateJobPage: React.FC = () => {
                       type="button"
                       key={opt}
                       onClick={() => toggleCandidateType(opt)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-sm text-left transition-all ${
-                        selected
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-sm text-left transition-all ${selected
                           ? 'border-primary bg-primary/5 text-primary font-medium'
                           : 'border-gray-200 text-gray-600 hover:border-primary/40 hover:bg-surface'
-                      }`}
+                        }`}
                     >
                       <div
-                        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                          selected ? 'border-primary bg-primary' : 'border-gray-300'
-                        }`}
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${selected ? 'border-primary bg-primary' : 'border-gray-300'
+                          }`}
                       >
                         {selected && (
                           <svg viewBox="0 0 12 10" fill="none" className="w-3 h-3">

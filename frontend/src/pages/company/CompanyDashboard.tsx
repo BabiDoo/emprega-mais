@@ -46,7 +46,7 @@ export const CompanyDashboard: React.FC = () => {
     <CompanyLayout>
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-primary">
               Olá, {company?.name}!
@@ -55,7 +55,7 @@ export const CompanyDashboard: React.FC = () => {
               Gerencie suas vagas e acompanhe os candidatos.
             </p>
           </div>
-          <Button onClick={() => navigate('/company/jobs/new')} size="md">
+          <Button onClick={() => navigate('/company/jobs/new')} size="md" className="w-full sm:w-auto">
             <Plus size={16} />
             Nova vaga
           </Button>
