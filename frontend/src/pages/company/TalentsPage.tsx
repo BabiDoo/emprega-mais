@@ -79,18 +79,30 @@ export const TalentsPage: React.FC = () => {
                   <p className="text-xs text-gray-500 line-clamp-2">{talent.summary}</p>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-1.5">
-                    {talent.skills?.slice(0, 2).map((s) => (
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="flex flex-wrap gap-1.5 min-w-0">
+                    {talent.skills?.slice(0, 3).map((s) => (
                       <Badge key={s} variant="gray">{s}</Badge>
                     ))}
+                    {(talent.skills?.length ?? 0) > 3 && (
+                      <span className="text-xs text-gray-400 self-center">
+                        +{(talent.skills?.length ?? 0) - 3}
+                      </span>
+                    )}
                   </div>
-                  {talent.pdfUrl && (
-                    <span className="flex items-center gap-1 text-xs text-accent font-medium">
-                      <FileText size={12} />
-                      CV disponível
-                    </span>
-                  )}
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/company/candidates/${talent.id}`);
+                    }}
+                    className="flex items-center gap-1.5 flex-shrink-0 text-xs font-medium
+      text-primary border border-primary/30 rounded-lg px-2.5 py-1.5
+      hover:bg-primary/5 transition-colors"
+                  >
+                    <FileText size={12} />
+                    Ver currículo
+                  </button>
                 </div>
               </Card>
             ))}
